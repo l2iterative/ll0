@@ -1,0 +1,4 @@
+The authors intend this repo to be dual-licensed under MIT or Apache2, at your option.
+
+The repo, however, uses an excessive amount of code from risc0 (https://github.com/risc0/risc0), which is licensed under
+the Apache2 license. Based on our observation, this repo is currently under Apache2 license.
