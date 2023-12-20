@@ -6,7 +6,7 @@ Apart from the RISC-V virtual machine, RISC Zero also has a [non-erasing Turing 
 continuation). This is a very restricted machine, as follows.
 
 - **No program counter (PC).** The program can only move in one single direction. As a result, there is no 
-function call.
+function call, no conditional branches, and no loop.
 - **Non-erasing.** One cannot write to the same memory location twice (i.e., write-once).
 - **Preprocessing.** The code is not part of the data, but hardcoded into the machine.
 
