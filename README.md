@@ -2,7 +2,7 @@
 
 <img src="title.png" align="right" alt="two dinosaurs playing stones that are flying" width="300"/>
 
-Apart from the RISC-V virtual machine, RISC Zero also has a non-erasing Turing machine used for recursion (including 
+Apart from the RISC-V virtual machine, RISC Zero also has a [non-erasing Turing machine](https://link.springer.com/chapter/10.1007/3-540-59175-3_104) used for recursion (including 
 continuation). This is a very restricted machine, as follows.
 
 - **No program counter (PC).** The program can only move in one single direction. As a result, there is no 
