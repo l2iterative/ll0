@@ -32,7 +32,7 @@ which opens the `recursion_zkr.zip` in the RISC Zero GitHub repo, which is a Zip
 - **Decompile.** A decompiler, rephrased from [risc0/risc0/zkvm/src/host/recursion/prove/preflight.rs](https://github.com/risc0/risc0/blob/main/risc0/zkvm/src/host/recursion/prove/preflight.rs), 
 which decompiles the `.zkr` file into a more human-readable format, at the same time trying to retain a Rust feeling.
 
-Note that our decompiler is not a new invention, as `preflight.rs` already comes with a tracing system, and [step_exec.cpp](https://github.com/risc0/risc0/blob/main/risc0/circuit/recursion-sys/cxx/step_exec.cpp) has left comments that explain the behavior of the instructions.
+Note that our decompiler is not a new invention, as [preflight.rs](https://github.com/risc0/risc0/blob/main/risc0/zkvm/src/host/recursion/prove/preflight.rs) already comes with a tracing system, and [step_exec.cpp](https://github.com/risc0/risc0/blob/main/risc0/circuit/recursion-sys/cxx/step_exec.cpp) has left comments that explain the behavior of the instructions.
 
 ### Decompile RISC Zero recursion circuits
 
