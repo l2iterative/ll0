@@ -111,7 +111,7 @@ As we can see, the low-level machine has been used to implement recursion for ex
 One who wants to implement variants of RISC Zero (such as, incorporating GKR proofs) will be able to "join" their version into
 the official RISC Zero version, through the use of assumptions and resolution of them. 
 
-Separately, as shown in the example of [Polygon Miden VM](https://0xpolygonmiden.github.io/miden-vm/design/main.html),, the industry is indeed seeking for a very low-level 
+Separately, as shown in the example of [Polygon Miden VM](https://0xpolygonmiden.github.io/miden-vm/design/main.html), the industry is indeed seeking for a very low-level 
 virtual machine that can handle special demands, often inherent to building low-level zero-knowledge proof systems. For 
 example, as one can see, this low-level machine is a Poseidon hash function resolver. 
 
