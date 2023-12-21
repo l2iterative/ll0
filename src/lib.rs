@@ -1,4 +1,5 @@
 pub mod parser;
+pub mod structures;
 
 pub const SELECT_MACRO_OPS: usize = 2;
 pub const SELECT_MICRO_OPS: usize = 1;
