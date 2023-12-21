@@ -1,5 +1,9 @@
 use clap::Parser;
 use lowlevel0::parser::Code;
+use lowlevel0::pass::const_pass::ConstPass;
+use lowlevel0::pass::merge_iop_pass::MergeIOPPass;
+use lowlevel0::pass::Pass;
+use lowlevel0::structures::StructuredInstruction;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
@@ -26,7 +30,13 @@ fn main() {
     buf_reader.read_to_end(&mut u8vec).unwrap();
 
     let u32vec: Vec<u32> = Vec::from(bytemuck::cast_slice(u8vec.as_slice()));
-    let code = Code::try_from(u32vec.as_slice()).unwrap();
+    let mut code = Code::try_from(u32vec.as_slice()).unwrap();
+
+    let mut const_pass = ConstPass {};
+    const_pass.pass(&mut code).unwrap();
+
+    let mut merge_iop_pass = MergeIOPPass {};
+    merge_iop_pass.pass(&mut code).unwrap();
 
     let out_name = if args.output.is_some() {
         args.output.unwrap()
@@ -43,8 +53,13 @@ fn main() {
     let mut buf_writer = BufWriter::new(ff);
 
     for (insn, line_no) in code.0.iter() {
-        buf_writer
-            .write_fmt(format_args!("{}: {}\n", line_no, insn))
-            .unwrap();
+        match insn {
+            StructuredInstruction::__DELETE__ => {}
+            _ => {
+                buf_writer
+                    .write_fmt(format_args!("{}: {}\n", line_no, insn))
+                    .unwrap();
+            }
+        }
     }
 }

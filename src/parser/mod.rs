@@ -12,13 +12,6 @@ use crate::{
     SELECT_POSEIDON_LOAD, SELECT_POSEIDON_PARTIAL, SELECT_POSEIDON_STORE, WRITE_ADDR,
 };
 
-pub type WriteAddr = u32;
-pub type ReadAddr = u32;
-pub type WriteStartAddr = u32;
-pub type Index = u32;
-pub type Parameter = u32;
-pub type Fp = u32;
-
 #[derive(Default)]
 struct GlobalState {
     sha_init_pos: usize,
@@ -35,8 +28,8 @@ fn walk_macro(
         out.push(
             StructuredInstruction::BIT_AND_ELEM(
                 insn[WRITE_ADDR],
-                insn[MACRO_OPERAND_0],
-                insn[MACRO_OPERAND_1],
+                insn[MACRO_OPERAND_0].into(),
+                insn[MACRO_OPERAND_1].into(),
             ),
             global_state.line_no,
         );
@@ -45,8 +38,8 @@ fn walk_macro(
             out.push(
                 StructuredInstruction::BIT_AND_SHORTS(
                     insn[WRITE_ADDR],
-                    insn[MACRO_OPERAND_0],
-                    insn[MACRO_OPERAND_1],
+                    insn[MACRO_OPERAND_0].into(),
+                    insn[MACRO_OPERAND_1].into(),
                 ),
                 global_state.line_no,
             );
@@ -54,8 +47,8 @@ fn walk_macro(
             out.push(
                 StructuredInstruction::BIT_XOR_SHORTS(
                     insn[WRITE_ADDR],
-                    insn[MACRO_OPERAND_0],
-                    insn[MACRO_OPERAND_1],
+                    insn[MACRO_OPERAND_0].into(),
+                    insn[MACRO_OPERAND_1].into(),
                 ),
                 global_state.line_no,
             );
@@ -73,12 +66,12 @@ fn walk_macro(
     } else if insn[MACRO_SHA_LOAD] == 1 {
         if insn[MACRO_OPERAND_2] == 0 {
             out.push(
-                StructuredInstruction::SHA_LOAD_FROM_MONTGOMERY(insn[MACRO_OPERAND_0]),
+                StructuredInstruction::SHA_LOAD_FROM_MONTGOMERY(insn[MACRO_OPERAND_0].into()),
                 global_state.line_no,
             );
         } else {
             out.push(
-                StructuredInstruction::SHA_LOAD(insn[MACRO_OPERAND_0]),
+                StructuredInstruction::SHA_LOAD(insn[MACRO_OPERAND_0].into()),
                 global_state.line_no,
             );
         }
@@ -104,7 +97,7 @@ fn walk_macro(
         out.push(StructuredInstruction::WOM_FINI, global_state.line_no);
     } else if insn[MACRO_SET_GLOBAL] == 1 {
         out.push(
-            StructuredInstruction::SET_GLOBAL(insn[MACRO_OPERAND_0], insn[MACRO_OPERAND_1]),
+            StructuredInstruction::SET_GLOBAL(insn[MACRO_OPERAND_0].into(), insn[MACRO_OPERAND_1]),
             global_state.line_no,
         );
     } else {
@@ -133,34 +126,34 @@ fn walk_micro(
             );
         } else if row[0] == MICRO_ADD {
             out.push(
-                StructuredInstruction::ADD(write_addr, row[1], row[2]),
+                StructuredInstruction::ADD(write_addr, row[1].into(), row[2].into()),
                 global_state.line_no,
             );
         } else if row[0] == MICRO_SUB {
             out.push(
-                StructuredInstruction::SUB(write_addr, row[1], row[2]),
+                StructuredInstruction::SUB(write_addr, row[1].into(), row[2].into()),
                 global_state.line_no,
             );
         } else if row[0] == MICRO_MUL {
             out.push(
-                StructuredInstruction::MUL(write_addr, row[1], row[2]),
+                StructuredInstruction::MUL(write_addr, row[1].into(), row[2].into()),
                 global_state.line_no,
             );
         } else if row[0] == MICRO_INV {
             if row[2] == 0 {
                 out.push(
-                    StructuredInstruction::NOT(write_addr, row[1]),
+                    StructuredInstruction::NOT(write_addr, row[1].into()),
                     global_state.line_no,
                 );
             } else {
                 out.push(
-                    StructuredInstruction::INV(write_addr, row[1]),
+                    StructuredInstruction::INV(write_addr, row[1].into()),
                     global_state.line_no,
                 );
             }
         } else if row[0] == MICRO_EQ {
             out.push(
-                StructuredInstruction::EQ(row[1], row[2]),
+                StructuredInstruction::EQ(row[1].into(), row[2].into()),
                 global_state.line_no,
             );
         } else if row[0] == MICRO_READ_IOP_HEADER {
@@ -179,17 +172,15 @@ fn walk_micro(
                     StructuredInstruction::MIX_RNG_WITH_PERV(
                         write_addr,
                         row[3],
-                        write_addr - 1,
-                        row[1],
-                        row[1],
-                        row[2],
-                        row[2],
+                        (write_addr - 1).into(),
+                        row[1].into(),
+                        row[2].into(),
                     ),
                     global_state.line_no,
                 );
             } else {
                 out.push(
-                    StructuredInstruction::MIX_RNG(write_addr, row[1], row[1], row[2], row[2]),
+                    StructuredInstruction::MIX_RNG(write_addr, row[1].into(), row[2].into()),
                     global_state.line_no,
                 );
             }
@@ -201,12 +192,17 @@ fn walk_micro(
                 row[2] + row[3]
             };
             out.push(
-                StructuredInstruction::SELECT(write_addr, row[1], if_true, if_false),
+                StructuredInstruction::SELECT(
+                    write_addr,
+                    row[1].into(),
+                    if_true.into(),
+                    if_false.into(),
+                ),
                 global_state.line_no,
             );
         } else if row[0] == MICRO_EXTRACT {
             out.push(
-                StructuredInstruction::EXTRACT(write_addr, row[1], row[2] * 2 + row[3]),
+                StructuredInstruction::EXTRACT(write_addr, row[1].into(), row[2] * 2 + row[3]),
                 global_state.line_no,
             );
         } else {
@@ -249,14 +245,14 @@ impl TryFrom<&[u32]> for Code {
                             StructuredInstruction::POSEIDON_LOAD_TO_MONTGOMERY(
                                 insn[POSEIDON_LOAD_ADD_CONSTS],
                                 group,
-                                insn[13],
-                                insn[14],
-                                insn[15],
-                                insn[16],
-                                insn[17],
-                                insn[18],
-                                insn[19],
-                                insn[20],
+                                insn[13].into(),
+                                insn[14].into(),
+                                insn[15].into(),
+                                insn[16].into(),
+                                insn[17].into(),
+                                insn[18].into(),
+                                insn[19].into(),
+                                insn[20].into(),
                             ),
                             global_state.line_no,
                         );
@@ -265,14 +261,14 @@ impl TryFrom<&[u32]> for Code {
                             StructuredInstruction::POSEIDON_LOAD(
                                 insn[POSEIDON_LOAD_ADD_CONSTS],
                                 group,
-                                insn[13],
-                                insn[14],
-                                insn[15],
-                                insn[16],
-                                insn[17],
-                                insn[18],
-                                insn[19],
-                                insn[20],
+                                insn[13].into(),
+                                insn[14].into(),
+                                insn[15].into(),
+                                insn[16].into(),
+                                insn[17].into(),
+                                insn[18].into(),
+                                insn[19].into(),
+                                insn[20].into(),
                             ),
                             global_state.line_no,
                         );
@@ -283,14 +279,14 @@ impl TryFrom<&[u32]> for Code {
                             StructuredInstruction::POSEIDON_ADD_LOAD_TO_MONTGOMERY(
                                 insn[POSEIDON_LOAD_ADD_CONSTS],
                                 group,
-                                insn[13],
-                                insn[14],
-                                insn[15],
-                                insn[16],
-                                insn[17],
-                                insn[18],
-                                insn[19],
-                                insn[20],
+                                insn[13].into(),
+                                insn[14].into(),
+                                insn[15].into(),
+                                insn[16].into(),
+                                insn[17].into(),
+                                insn[18].into(),
+                                insn[19].into(),
+                                insn[20].into(),
                             ),
                             global_state.line_no,
                         );
@@ -299,14 +295,14 @@ impl TryFrom<&[u32]> for Code {
                             StructuredInstruction::POSEIDON_ADD_LOAD(
                                 insn[POSEIDON_LOAD_ADD_CONSTS],
                                 group,
-                                insn[13],
-                                insn[14],
-                                insn[15],
-                                insn[16],
-                                insn[17],
-                                insn[18],
-                                insn[19],
-                                insn[20],
+                                insn[13].into(),
+                                insn[14].into(),
+                                insn[15].into(),
+                                insn[16].into(),
+                                insn[17].into(),
+                                insn[18].into(),
+                                insn[19].into(),
+                                insn[20].into(),
                             ),
                             global_state.line_no,
                         );

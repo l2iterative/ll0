@@ -1,4 +1,6 @@
+pub mod math;
 pub mod parser;
+pub mod pass;
 pub mod structures;
 
 pub const SELECT_MACRO_OPS: usize = 2;
