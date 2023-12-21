@@ -1,3 +1,5 @@
+pub mod parser;
+
 pub const SELECT_MACRO_OPS: usize = 2;
 pub const SELECT_MICRO_OPS: usize = 1;
 pub const SELECT_POSEIDON_FULL: usize = 4;
@@ -35,7 +37,7 @@ pub const MICRO_SELECT: u32 = 9;
 pub const MICRO_EXTRACT: u32 = 10;
 
 pub const POSEIDON_LOAD_ADD_CONSTS: usize = 9;
-pub const POSEIDON_LOAD_DO_MONT: usize = 7;
+pub const POSEIDON_DO_MONT: usize = 7;
 pub const POSEIDON_LOAD_KEEP_STATE: usize = 8;
 pub const POSEIDON_LOAD_G0: usize = 10;
 pub const POSEIDON_LOAD_G1: usize = 11;
