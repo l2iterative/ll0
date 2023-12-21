@@ -15,7 +15,7 @@ impl Add<Fp> for &Fp {
     type Output = Fp;
 
     fn add(self, rhs: Fp) -> Self::Output {
-        self.mul(&rhs)
+        Fp(((self.0 as u64 + rhs.0 as u64) % 2013265921u64) as u32)
     }
 }
 
@@ -23,7 +23,7 @@ impl Add<Fp> for Fp {
     type Output = Fp;
 
     fn add(self, rhs: Fp) -> Self::Output {
-        self.mul(rhs)
+        Fp(((self.0 as u64 + rhs.0 as u64) % 2013265921u64) as u32)
     }
 }
 
@@ -135,6 +135,21 @@ impl Mul for &Fp4 {
             &self.0 * &rhs.2 + &self.1 * &rhs.1 + &self.2 * &rhs.0 + NBETA * (&self.3 * &rhs.3),
             &self.0 * &rhs.3 + &self.1 * &rhs.2 + &self.2 * &rhs.1 + &self.3 * &rhs.0,
         )
+    }
+}
+
+impl Display for Fp4 {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if self.1 == Fp::ZERO && self.2 == Fp::ZERO && self.3 == Fp::ZERO {
+            f.write_fmt(format_args!("{}", self.0))
+        } else if self.2 == Fp::ZERO && self.3 == Fp::ZERO {
+            f.write_fmt(format_args!("({}, {})", self.0, self.1))
+        } else {
+            f.write_fmt(format_args!(
+                "({}, {}, {}, {})",
+                self.0, self.1, self.2, self.3
+            ))
+        }
     }
 }
 

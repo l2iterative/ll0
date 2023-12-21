@@ -104,6 +104,10 @@ impl Pass for ConstPass {
                         let d2 = d2.unwrap();
                         mem.insert(*w, &d1 + &d2);
                         *insn = StructuredInstruction::__DELETE__;
+                    } else if d1.is_some() && d1.unwrap() == Fp4::default() {
+                        *insn = StructuredInstruction::__MOV__(*w, r2.clone());
+                    } else if d2.is_some() && d2.unwrap() == Fp4::default() {
+                        *insn = StructuredInstruction::__MOV__(*w, r1.clone());
                     }
                 }
                 StructuredInstruction::SUB(w, r1, r2) => {
@@ -114,6 +118,8 @@ impl Pass for ConstPass {
                         let d2 = d2.unwrap();
                         mem.insert(*w, &d1 - &d2);
                         *insn = StructuredInstruction::__DELETE__;
+                    } else if d2.is_some() && d2.unwrap() == Fp4::default() {
+                        *insn = StructuredInstruction::__MOV__(*w, r1.clone());
                     }
                 }
                 StructuredInstruction::MUL(w, r1, r2) => {
@@ -123,6 +129,12 @@ impl Pass for ConstPass {
                         let d1 = d1.unwrap();
                         let d2 = d2.unwrap();
                         mem.insert(*w, &d1 * &d2);
+                        *insn = StructuredInstruction::__DELETE__;
+                    } else if d1.is_some() && d1.unwrap() == Fp4::default() {
+                        mem.insert(*w, Fp4::default());
+                        *insn = StructuredInstruction::__DELETE__;
+                    } else if d2.is_some() && d2.unwrap() == Fp4::default() {
+                        mem.insert(*w, Fp4::default());
                         *insn = StructuredInstruction::__DELETE__;
                     }
                 }

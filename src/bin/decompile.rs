@@ -1,6 +1,7 @@
 use clap::Parser;
 use lowlevel0::parser::Code;
 use lowlevel0::pass::const_pass::ConstPass;
+use lowlevel0::pass::live_variable_analysis::LiveVariableAnalysisPass;
 use lowlevel0::pass::merge_iop_pass::MergeIOPPass;
 use lowlevel0::pass::Pass;
 use lowlevel0::structures::StructuredInstruction;
@@ -37,6 +38,9 @@ fn main() {
 
     let mut merge_iop_pass = MergeIOPPass {};
     merge_iop_pass.pass(&mut code).unwrap();
+
+    let mut live_variable_analysis = LiveVariableAnalysisPass {};
+    live_variable_analysis.pass(&mut code).unwrap();
 
     let out_name = if args.output.is_some() {
         args.output.unwrap()
