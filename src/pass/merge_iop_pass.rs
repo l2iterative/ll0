@@ -5,7 +5,7 @@ use crate::structures::StructuredInstruction;
 pub struct MergeIOPPass;
 
 impl Pass for MergeIOPPass {
-    fn pass(&mut self, code: &mut Code) -> anyhow::Result<()> {
+    fn pass(code: &mut Code) -> anyhow::Result<()> {
         let len = code.0.len();
         let mut cur = 0;
 

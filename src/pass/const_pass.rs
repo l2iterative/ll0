@@ -7,7 +7,7 @@ use std::collections::HashMap;
 pub struct ConstPass;
 
 impl Pass for ConstPass {
-    fn pass(&mut self, code: &mut Code) -> anyhow::Result<()> {
+    fn pass(code: &mut Code) -> anyhow::Result<()> {
         let mut mem = HashMap::<u32, Fp4>::new();
         mem.insert(0, Fp4::default());
 
@@ -67,22 +67,6 @@ impl Pass for ConstPass {
                         *insn = StructuredInstruction::__DELETE__;
                     }
                 }
-                StructuredInstruction::SHA_INIT
-                | StructuredInstruction::SHA_INIT_PADDING
-                | StructuredInstruction::SHA_MIX
-                | StructuredInstruction::SHA_FINI(_)
-                | StructuredInstruction::SHA_FINI_PADDING
-                | StructuredInstruction::WOM_INIT
-                | StructuredInstruction::WOM_FINI
-                | StructuredInstruction::READ_IOP_HEADER(_, _)
-                | StructuredInstruction::READ_IOP_BODY(_)
-                | StructuredInstruction::__DELETE__
-                | StructuredInstruction::__PANIC__
-                | StructuredInstruction::POSEIDON_FULL
-                | StructuredInstruction::POSEIDON_PARTIAL
-                | StructuredInstruction::POSEIDON_STORE_TO_MONTGOMERY(_, _)
-                | StructuredInstruction::POSEIDON_STORE(_, _)
-                | StructuredInstruction::__READ_IOP_BODY_BATCH__(_, _) => {}
                 StructuredInstruction::SHA_LOAD_FROM_MONTGOMERY(r) => {
                     refresh_and_get_constant(&mem, r);
                 }
@@ -316,6 +300,7 @@ impl Pass for ConstPass {
                         *insn = StructuredInstruction::__DELETE__;
                     }
                 }
+                _ => {}
             }
         }
 

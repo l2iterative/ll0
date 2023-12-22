@@ -3,6 +3,7 @@ use std::fmt::{Display, Formatter};
 use std::format_args;
 
 #[allow(non_camel_case_types)]
+#[derive(PartialEq, Eq)]
 pub enum StructuredInstruction {
     // m[{}] = (m[{}].0 & m[{}].0)
     BIT_AND_ELEM(WriteAddr, ReadAddr, ReadAddr),
@@ -10,8 +11,8 @@ pub enum StructuredInstruction {
     BIT_AND_SHORTS(WriteAddr, ReadAddr, ReadAddr),
     // m[{}] = (m[{}].0 ^ m[{}].0, m[{}].1 ^ m[{}].1)
     BIT_XOR_SHORTS(WriteAddr, ReadAddr, ReadAddr),
-    // sha_init()
-    SHA_INIT,
+    // sha_init_start()
+    SHA_INIT_START,
     // sha_init_padding()
     SHA_INIT_PADDING,
     // sha_load_from_montgomery(m[{}].0)
@@ -20,8 +21,8 @@ pub enum StructuredInstruction {
     SHA_LOAD(ReadAddr),
     // sha_mix()
     SHA_MIX,
-    // sha_fini(&mut m[{}..{}])
-    SHA_FINI(WriteStartAddr),
+    // sha_fini_start(&mut m[{}..{}])
+    SHA_FINI_START(WriteStartAddr),
     // sha_fini_padding()
     SHA_FINI_PADDING,
     // wom_init()
@@ -112,9 +113,9 @@ pub enum StructuredInstruction {
     POSEIDON_FULL,
     // poseidon.partial()
     POSEIDON_PARTIAL,
-    // poseidon.write_state{}_montgomery(&mut m[{}..{}])
+    // poseidon.store_state{}_montgomery(&mut m[{}..{}])
     POSEIDON_STORE_TO_MONTGOMERY(Index, WriteStartAddr),
-    // poseidon.write_state{}(&mut m[{}..{}])
+    // poseidon.store_state{}(&mut m[{}..{}])
     POSEIDON_STORE(Index, WriteStartAddr),
     // //delete
     __DELETE__,
@@ -124,6 +125,16 @@ pub enum StructuredInstruction {
     __MOV__(WriteAddr, ReadAddr),
     // iop.write(m[{}..{}])
     __READ_IOP_BODY_BATCH__(WriteStartAddr, WriteEndAddr),
+    // for _ in 0..48 { sha_mix(); }
+    __SHA_MIX_48__,
+    // poseidon.permute_and_store_state{}_montgomery(&mut m[{}..{}])
+    __POSEIDON_PERMUTE_STORE_TO_MONTGOMERY__(Index, WriteStartAddr),
+    // poseidon.permute_and_store_state{}(&mut m[{}..{}])
+    __POSEIDON_PERMUTE_STORE__(Index, WriteStartAddr),
+    // poseidon.permute()
+    __POSEIDON_PERMUTE__,
+    // sha_init()
+    __SHA_INIT__,
 }
 
 impl Display for StructuredInstruction {
@@ -140,8 +151,8 @@ impl Display for StructuredInstruction {
                 f.write_fmt(format_args!("m[{}] = ({} ^ {}, {} ^ {});",
                                          w, r1._0(), r2._0(), r1._1(), r2._1()))
             }
-            StructuredInstruction::SHA_INIT => {
-                f.write_fmt(format_args!("sha_init();"))
+            StructuredInstruction::SHA_INIT_START => {
+                f.write_fmt(format_args!("sha_init_start();"))
             }
             StructuredInstruction::SHA_INIT_PADDING => {
                 f.write_fmt(format_args!("sha_init_padding();"))
@@ -161,9 +172,9 @@ impl Display for StructuredInstruction {
             StructuredInstruction::SHA_MIX => {
                 f.write_fmt(format_args!("sha_mix();"))
             }
-            StructuredInstruction::SHA_FINI(rs) => {
+            StructuredInstruction::SHA_FINI_START(rs) => {
                 f.write_fmt(format_args!(
-                    "sha_fini(&mut m[{}..{}]);",
+                    "sha_fini_start(&mut m[{}..{}]);",
                     rs,
                     rs + 8
                 ))
@@ -219,7 +230,7 @@ impl Display for StructuredInstruction {
             }
             StructuredInstruction::INV(w, r) => {
                 f.write_fmt(format_args!(
-                    "m[{}] = 1 /{};", w, r
+                    "m[{}] = 1 / {};", w, r
                 ))
             }
             StructuredInstruction::EQ(r1, r2) => {
@@ -325,13 +336,38 @@ impl Display for StructuredInstruction {
                     ws, we
                 ))
             }
+            StructuredInstruction::__SHA_MIX_48__ => {
+                f.write_str("for _ in 0..48 { sha_mix(); }")
+            }
+            StructuredInstruction::__POSEIDON_PERMUTE_STORE_TO_MONTGOMERY__(idx, ws) => {
+                f.write_fmt(format_args!(
+                    "poseidon.permute_and_store_state{}_montgomery(&mut m[{}..{}]);",
+                    idx, ws, ws + 8
+                ))
+            }
+            StructuredInstruction::__POSEIDON_PERMUTE_STORE__(idx, ws) => {
+                f.write_fmt(format_args!(
+                    "poseidon.permute_and_store_state{}(&mut m[{}..{}]);",
+                    idx, ws, ws + 8
+                ))
+            }
+            StructuredInstruction::__POSEIDON_PERMUTE__ => {
+                f.write_str(
+                    "poseidon.permute();"
+                )
+            }
+            StructuredInstruction::__SHA_INIT__ => {
+                f.write_str(
+                    "sha_init();"
+                )
+            }
         }
     }
 }
 
 pub type WriteAddr = u32;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum ReadAddr {
     Ref(u32),
     Const(Fp4),

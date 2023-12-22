@@ -1,10 +1,12 @@
 use clap::Parser;
-use lowlevel0::parser::Code;
-use lowlevel0::pass::const_pass::ConstPass;
-use lowlevel0::pass::live_variable_analysis::LiveVariableAnalysisPass;
-use lowlevel0::pass::merge_iop_pass::MergeIOPPass;
-use lowlevel0::pass::Pass;
-use lowlevel0::structures::StructuredInstruction;
+use ll0::parser::Code;
+use ll0::pass::const_pass::ConstPass;
+use ll0::pass::live_variable_analysis::LiveVariableAnalysisPass;
+use ll0::pass::merge_iop_pass::MergeIOPPass;
+use ll0::pass::poseidon_pass::PoseidonPass;
+use ll0::pass::sha_pass::ShaPass;
+use ll0::pass::Pass;
+use ll0::structures::StructuredInstruction;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
@@ -33,14 +35,11 @@ fn main() {
     let u32vec: Vec<u32> = Vec::from(bytemuck::cast_slice(u8vec.as_slice()));
     let mut code = Code::try_from(u32vec.as_slice()).unwrap();
 
-    let mut const_pass = ConstPass {};
-    const_pass.pass(&mut code).unwrap();
-
-    let mut merge_iop_pass = MergeIOPPass {};
-    merge_iop_pass.pass(&mut code).unwrap();
-
-    let mut live_variable_analysis = LiveVariableAnalysisPass {};
-    live_variable_analysis.pass(&mut code).unwrap();
+    ConstPass::pass(&mut code).unwrap();
+    MergeIOPPass::pass(&mut code).unwrap();
+    LiveVariableAnalysisPass::pass(&mut code).unwrap();
+    ShaPass::pass(&mut code).unwrap();
+    PoseidonPass::pass(&mut code).unwrap();
 
     let out_name = if args.output.is_some() {
         args.output.unwrap()

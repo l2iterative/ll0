@@ -55,7 +55,7 @@ fn walk_macro(
         }
     } else if insn[MACRO_SHA_INIT] == 1 {
         if global_state.sha_init_pos == 0 {
-            out.push(StructuredInstruction::SHA_INIT, global_state.line_no);
+            out.push(StructuredInstruction::SHA_INIT_START, global_state.line_no);
         } else {
             out.push(
                 StructuredInstruction::SHA_INIT_PADDING,
@@ -81,7 +81,7 @@ fn walk_macro(
         if global_state.sha_fini_pos == 0 {
             let out_addr = insn[MACRO_OPERAND_0] - 3;
             out.push(
-                StructuredInstruction::SHA_FINI(out_addr),
+                StructuredInstruction::SHA_FINI_START(out_addr),
                 global_state.line_no,
             );
         } else {

@@ -8,7 +8,7 @@ use std::rc::Rc;
 pub struct LiveVariableAnalysisPass;
 
 impl Pass for LiveVariableAnalysisPass {
-    fn pass(&mut self, code: &mut Code) -> anyhow::Result<()> {
+    fn pass(code: &mut Code) -> anyhow::Result<()> {
         let last_use = Rc::new(RefCell::new(HashMap::<u32, usize>::new()));
         let line_number = Rc::new(RefCell::new(0usize));
 
@@ -41,7 +41,7 @@ impl Pass for LiveVariableAnalysisPass {
                 | StructuredInstruction::SET_GLOBAL(r, _) => {
                     v(r);
                 }
-                StructuredInstruction::SHA_FINI(w) => {
+                StructuredInstruction::SHA_FINI_START(w) => {
                     u(w);
                     u(&(w + 1));
                     u(&(w + 2));
