@@ -4,6 +4,7 @@ use ll0::pass::const_pass::ConstPass;
 use ll0::pass::live_variable_analysis::LiveVariableAnalysisPass;
 use ll0::pass::merge_iop_pass::MergeIOPPass;
 use ll0::pass::poseidon_pass::PoseidonPass;
+use ll0::pass::reorder_pass::ReorderPass;
 use ll0::pass::sha_pass::ShaPass;
 use ll0::pass::Pass;
 use ll0::structures::StructuredInstruction;
@@ -40,6 +41,7 @@ fn main() {
     LiveVariableAnalysisPass::pass(&mut code).unwrap();
     ShaPass::pass(&mut code).unwrap();
     PoseidonPass::pass(&mut code).unwrap();
+    ReorderPass::pass(&mut code).unwrap();
 
     let out_name = if args.output.is_some() {
         args.output.unwrap()
@@ -55,14 +57,14 @@ fn main() {
     let ff = File::create(out_name).unwrap();
     let mut buf_writer = BufWriter::new(ff);
 
-    for (insn, line_no) in code.0.iter() {
-        match insn {
-            StructuredInstruction::__DELETE__ => {}
-            _ => {
-                buf_writer
-                    .write_fmt(format_args!("{}: {}\n", line_no, insn))
-                    .unwrap();
-            }
-        }
+    for (i, (insn, _)) in code
+        .0
+        .iter()
+        .filter(|(insn, _)| !matches!(insn, StructuredInstruction::__DELETE__))
+        .enumerate()
+    {
+        buf_writer
+            .write_fmt(format_args!("{}: {}\n", i + 1, insn))
+            .unwrap();
     }
 }

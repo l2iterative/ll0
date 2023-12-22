@@ -16,7 +16,7 @@ impl Pass for LiveVariableAnalysisPass {
             last_use.borrow_mut().insert(*v, *line_number.borrow());
         };
         let v = |v: &ReadAddr| match v {
-            ReadAddr::Ref(v) => {
+            ReadAddr::Ref(v) | ReadAddr::RefSub(v, _) => {
                 last_use.borrow_mut().insert(*v, *line_number.borrow());
             }
             ReadAddr::Const(_) => {}
@@ -147,11 +147,16 @@ impl Pass for LiveVariableAnalysisPass {
                     *r = ReadAddr::Ref(*remap.borrow().get(m).unwrap());
                 }
             }
+            ReadAddr::RefSub(m, idx) => {
+                if remap.borrow().contains_key(m) {
+                    *r = ReadAddr::RefSub(*remap.borrow().get(m).unwrap(), *idx);
+                }
+            }
             _ => {}
         };
 
         let is_available = |r: &ReadAddr| match r {
-            ReadAddr::Ref(m) => {
+            ReadAddr::Ref(m) | ReadAddr::RefSub(m, _) => {
                 if let Some(v) = last_use.borrow().get(m) {
                     if *v == *(line_number.borrow()) {
                         true
@@ -162,7 +167,7 @@ impl Pass for LiveVariableAnalysisPass {
                     false
                 }
             }
-            ReadAddr::Const(_) => false,
+            _ => false,
         };
 
         let remap_u = |w: &mut WriteAddr, r: &ReadAddr| match r {

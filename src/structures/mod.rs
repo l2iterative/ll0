@@ -21,7 +21,7 @@ pub enum StructuredInstruction {
     SHA_LOAD(ReadAddr),
     // sha_mix()
     SHA_MIX,
-    // sha_fini_start(&mut m[{}..{}])
+    // sha_fini_start(&mut m[{}..={}])
     SHA_FINI_START(WriteStartAddr),
     // sha_fini_padding()
     SHA_FINI_PADDING,
@@ -113,9 +113,9 @@ pub enum StructuredInstruction {
     POSEIDON_FULL,
     // poseidon.partial()
     POSEIDON_PARTIAL,
-    // poseidon.store_state{}_montgomery(&mut m[{}..{}])
+    // poseidon.store_state{}_montgomery(&mut m[{}..={}])
     POSEIDON_STORE_TO_MONTGOMERY(Index, WriteStartAddr),
-    // poseidon.store_state{}(&mut m[{}..{}])
+    // poseidon.store_state{}(&mut m[{}..={}])
     POSEIDON_STORE(Index, WriteStartAddr),
     // //delete
     __DELETE__,
@@ -123,18 +123,20 @@ pub enum StructuredInstruction {
     __PANIC__,
     // m[{}] = m[{}]
     __MOV__(WriteAddr, ReadAddr),
-    // iop.write(m[{}..{}])
+    // iop.write(m[{}..={}])
     __READ_IOP_BODY_BATCH__(WriteStartAddr, WriteEndAddr),
     // for _ in 0..48 { sha_mix(); }
     __SHA_MIX_48__,
-    // poseidon.permute_and_store_state{}_montgomery(&mut m[{}..{}])
+    // poseidon.permute_and_store_state{}_montgomery(&mut m[{}..={}])
     __POSEIDON_PERMUTE_STORE_TO_MONTGOMERY__(Index, WriteStartAddr),
-    // poseidon.permute_and_store_state{}(&mut m[{}..{}])
+    // poseidon.permute_and_store_state{}(&mut m[{}..={}])
     __POSEIDON_PERMUTE_STORE__(Index, WriteStartAddr),
     // poseidon.permute()
     __POSEIDON_PERMUTE__,
     // sha_init()
     __SHA_INIT__,
+    // sha_fini(&mut m[{}..={}])
+    __SHA_FINI__(WriteStartAddr),
 }
 
 impl Display for StructuredInstruction {
@@ -174,9 +176,9 @@ impl Display for StructuredInstruction {
             }
             StructuredInstruction::SHA_FINI_START(rs) => {
                 f.write_fmt(format_args!(
-                    "sha_fini_start(&mut m[{}..{}]);",
+                    "sha_fini_start(&mut m[{}..={}]);",
                     rs,
-                    rs + 8
+                    rs + 8 - 1
                 ))
             }
             StructuredInstruction::SHA_FINI_PADDING => {
@@ -308,14 +310,14 @@ impl Display for StructuredInstruction {
             }
             StructuredInstruction::POSEIDON_STORE_TO_MONTGOMERY(idx, ws) => {
                 f.write_fmt(format_args!(
-                    "poseidon.write_state{}_montgomery(&mut m[{}..{}]);",
-                   idx, ws, ws + 8
+                    "poseidon.write_state{}_montgomery(&mut m[{}..={}]);",
+                   idx, ws, ws + 8 - 1
                 ))
             }
             StructuredInstruction::POSEIDON_STORE(idx, ws) => {
                 f.write_fmt(format_args!(
-                    "poseidon.write_state{}(&mut m[{}..{}]);",
-                    idx, ws, ws+8
+                    "poseidon.write_state{}(&mut m[{}..={}]);",
+                    idx, ws, ws+8 - 1
                 ))
             }
             StructuredInstruction::__DELETE__ => {
@@ -332,8 +334,8 @@ impl Display for StructuredInstruction {
             }
             StructuredInstruction::__READ_IOP_BODY_BATCH__(ws, we) => {
                 f.write_fmt(format_args!(
-                    "iop.write(m[{}..{}]);",
-                    ws, we
+                    "iop.write(m[{}..={}]);",
+                    ws, we - 1
                 ))
             }
             StructuredInstruction::__SHA_MIX_48__ => {
@@ -341,14 +343,14 @@ impl Display for StructuredInstruction {
             }
             StructuredInstruction::__POSEIDON_PERMUTE_STORE_TO_MONTGOMERY__(idx, ws) => {
                 f.write_fmt(format_args!(
-                    "poseidon.permute_and_store_state{}_montgomery(&mut m[{}..{}]);",
-                    idx, ws, ws + 8
+                    "poseidon.permute_and_store_state{}_montgomery(&mut m[{}..={}]);",
+                    idx, ws, ws + 8 - 1
                 ))
             }
             StructuredInstruction::__POSEIDON_PERMUTE_STORE__(idx, ws) => {
                 f.write_fmt(format_args!(
-                    "poseidon.permute_and_store_state{}(&mut m[{}..{}]);",
-                    idx, ws, ws + 8
+                    "poseidon.permute_and_store_state{}(&mut m[{}..={}]);",
+                    idx, ws, ws + 8 -1
                 ))
             }
             StructuredInstruction::__POSEIDON_PERMUTE__ => {
@@ -361,6 +363,13 @@ impl Display for StructuredInstruction {
                     "sha_init();"
                 )
             }
+            StructuredInstruction::__SHA_FINI__(rs) => {
+                f.write_fmt(format_args!(
+                    "sha_fini(&mut m[{}..={}]);",
+                    rs,
+                    rs + 8 - 1
+                ))
+            }
         }
     }
 }
@@ -370,6 +379,7 @@ pub type WriteAddr = u32;
 #[derive(Clone, PartialEq, Eq)]
 pub enum ReadAddr {
     Ref(u32),
+    RefSub(u32, u32),
     Const(Fp4),
 }
 
@@ -397,48 +407,47 @@ impl Display for ReadAddr {
                     f.write_fmt(format_args!("({}, {}, {}, {})", v.0, v.1, v.2, v.3))
                 }
             }
+            ReadAddr::RefSub(v, idx) => f.write_fmt(format_args!("m[{}].{}", v, idx)),
         }
     }
 }
 
 impl ReadAddr {
-    pub fn _0(&self) -> ReadSubAddr {
+    pub fn _0(&self) -> ReadAddr {
         match self {
-            ReadAddr::Ref(v) => ReadSubAddr::Ref(*v, 0),
-            ReadAddr::Const(v) => ReadSubAddr::Const(v.0.clone()),
+            ReadAddr::Ref(v) => ReadAddr::RefSub(*v, 0),
+            ReadAddr::Const(v) => {
+                ReadAddr::Const(Fp4::new(v.0.clone(), Fp::ZERO, Fp::ZERO, Fp::ZERO))
+            }
+            ReadAddr::RefSub(v, idx) => ReadAddr::RefSub(*v, *idx),
         }
     }
 
-    pub fn _1(&self) -> ReadSubAddr {
+    pub fn _1(&self) -> ReadAddr {
         match self {
-            ReadAddr::Ref(v) => ReadSubAddr::Ref(*v, 1),
-            ReadAddr::Const(v) => ReadSubAddr::Const(v.1.clone()),
+            ReadAddr::Ref(v) => ReadAddr::RefSub(*v, 1),
+            ReadAddr::Const(v) => {
+                ReadAddr::Const(Fp4::new(v.1.clone(), Fp::ZERO, Fp::ZERO, Fp::ZERO))
+            }
+            ReadAddr::RefSub(_, _) => ReadAddr::Const(Fp4::default()),
         }
     }
-    pub fn _2(&self) -> ReadSubAddr {
+    pub fn _2(&self) -> ReadAddr {
         match self {
-            ReadAddr::Ref(v) => ReadSubAddr::Ref(*v, 2),
-            ReadAddr::Const(v) => ReadSubAddr::Const(v.2.clone()),
+            ReadAddr::Ref(v) => ReadAddr::RefSub(*v, 2),
+            ReadAddr::Const(v) => {
+                ReadAddr::Const(Fp4::new(v.2.clone(), Fp::ZERO, Fp::ZERO, Fp::ZERO))
+            }
+            ReadAddr::RefSub(_, _) => ReadAddr::Const(Fp4::default()),
         }
     }
-    pub fn _3(&self) -> ReadSubAddr {
+    pub fn _3(&self) -> ReadAddr {
         match self {
-            ReadAddr::Ref(v) => ReadSubAddr::Ref(*v, 3),
-            ReadAddr::Const(v) => ReadSubAddr::Const(v.3.clone()),
-        }
-    }
-}
-
-pub enum ReadSubAddr {
-    Ref(u32, usize),
-    Const(Fp),
-}
-
-impl Display for ReadSubAddr {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ReadSubAddr::Ref(v, idx) => f.write_fmt(format_args!("m[{}].{}", v, idx)),
-            ReadSubAddr::Const(v) => f.write_fmt(format_args!("{}", v)),
+            ReadAddr::Ref(v) => ReadAddr::RefSub(*v, 3),
+            ReadAddr::Const(v) => {
+                ReadAddr::Const(Fp4::new(v.3.clone(), Fp::ZERO, Fp::ZERO, Fp::ZERO))
+            }
+            ReadAddr::RefSub(_, _) => ReadAddr::Const(Fp4::default()),
         }
     }
 }

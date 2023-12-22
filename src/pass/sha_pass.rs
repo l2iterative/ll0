@@ -36,6 +36,24 @@ impl Pass for ShaPass {
                 }
             }
 
+            if matches!(code.0[cur].0, StructuredInstruction::SHA_FINI_START(_)) {
+                for i in 1..=3 {
+                    if code.0[cur + i].0 != StructuredInstruction::SHA_FINI_PADDING {
+                        cur += 1;
+                        continue;
+                    }
+                }
+                match code.0[cur].0 {
+                    StructuredInstruction::SHA_FINI_START(ws) => {
+                        code.0[cur].0 = StructuredInstruction::__SHA_FINI__(ws);
+                    }
+                    _ => {}
+                }
+                for i in 1..=3 {
+                    code.0[cur + i].0 = StructuredInstruction::__DELETE__;
+                }
+            }
+
             cur += 1;
         }
 
