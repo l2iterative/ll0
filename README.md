@@ -144,6 +144,14 @@ Separately, as shown in the example of [Polygon Miden VM](https://0xpolygonmiden
 virtual machine that can handle special demands, often inherent to building low-level zero-knowledge proof systems. For 
 example, as one can see, this low-level machine is a Poseidon hash function resolver. 
 
+The recursion programs benefit from this low-level machine because these programs use Poseidon hash functions at a 
+very intensive level:
+- `identity.zkr` makes 5685 Poseidon permutations.
+- `join.zkr` makes 11370 Poseidon permutations.
+- `lift_14.zkr` to `lift_24.zkr` makes 4524 to 8738 Poseidon permutations.
+- `resolve.zkr` makes 11370 Poseidon permutations.
+- `test_recursion_circuit.zkr` makes 6 Poseidon permutations.
+
 ### Credits and License
 Most of the code are rephrased from RISC Zero (https://www.github.com/risc0/risc0).
 

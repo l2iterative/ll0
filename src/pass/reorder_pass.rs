@@ -103,9 +103,14 @@ impl Pass for ReorderPass {
                     remap_u(w)?;
                 }
                 StructuredInstruction::SHA_LOAD_FROM_MONTGOMERY(r)
-                | StructuredInstruction::SHA_LOAD(r)
-                | StructuredInstruction::SET_GLOBAL(r, _) => {
+                | StructuredInstruction::SHA_LOAD(r) => {
                     remap_v(r)?;
+                }
+                StructuredInstruction::SET_GLOBAL(r1, r2, r3, r4, _) => {
+                    remap_v(r1)?;
+                    remap_v(r2)?;
+                    remap_v(r3)?;
+                    remap_v(r4)?;
                 }
                 StructuredInstruction::NOT(w, r) | StructuredInstruction::INV(w, r) => {
                     remap_v(r)?;
@@ -130,7 +135,7 @@ impl Pass for ReorderPass {
                 StructuredInstruction::EXTRACT(_, r, _) => {
                     remap_v(r)?;
                 }
-                StructuredInstruction::POSEIDON_LOAD_TO_MONTGOMERY(
+                StructuredInstruction::POSEIDON_LOAD_FROM_MONTGOMERY(
                     _,
                     _,
                     r1,
@@ -143,7 +148,7 @@ impl Pass for ReorderPass {
                     r8,
                 )
                 | StructuredInstruction::POSEIDON_LOAD(_, _, r1, r2, r3, r4, r5, r6, r7, r8)
-                | StructuredInstruction::POSEIDON_ADD_LOAD_TO_MONTGOMERY(
+                | StructuredInstruction::POSEIDON_ADD_LOAD_FROM_MONTGOMERY(
                     _,
                     _,
                     r1,

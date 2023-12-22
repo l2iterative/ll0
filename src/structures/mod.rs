@@ -29,8 +29,8 @@ pub enum StructuredInstruction {
     WOM_INIT,
     // wom_fini()
     WOM_FINI,
-    // set_global(m[{}], {})
-    SET_GLOBAL(ReadAddr, Index),
+    // set_global(({}, {}, {}, {}, {}, {}, {}, {}), {})
+    SET_GLOBAL(ReadAddr, ReadAddr, ReadAddr, ReadAddr, Index),
     // m[{}] = ({}, {})
     CONST(WriteAddr, Parameter, Parameter),
     // m[{}] = m[{}] + m[{}]
@@ -58,7 +58,7 @@ pub enum StructuredInstruction {
     // m[{}] = (m[{}].{})
     EXTRACT(WriteAddr, ReadAddr, Index),
     // poseidon.add_consts = {}; poseidon.state{} = to_montgomery!(m[{}].0, m[{}].0, m[{}].0, m[{}].0, m[{}].0, m[{}].0, m[{}].0, m[{}].0)
-    POSEIDON_LOAD_TO_MONTGOMERY(
+    POSEIDON_LOAD_FROM_MONTGOMERY(
         Parameter,
         Index,
         ReadAddr,
@@ -84,7 +84,7 @@ pub enum StructuredInstruction {
         ReadAddr,
     ),
     // poseidon.add_consts = {}; poseidon.state{} += to_montgomery!(m[{}].0, m[{}].0, m[{}].0, m[{}].0, m[{}].0, m[{}].0, m[{}].0, m[{}].0)
-    POSEIDON_ADD_LOAD_TO_MONTGOMERY(
+    POSEIDON_ADD_LOAD_FROM_MONTGOMERY(
         Parameter,
         Index,
         ReadAddr,
@@ -190,10 +190,10 @@ impl Display for StructuredInstruction {
             StructuredInstruction::WOM_FINI => {
                 f.write_fmt(format_args!("wom_fini();"))
             }
-            StructuredInstruction::SET_GLOBAL(r, idx) => {
+            StructuredInstruction::SET_GLOBAL(r1, r2, r3, r4, idx) => {
                 f.write_fmt(format_args!(
-                    "set_global({}, {});",
-                    r, idx
+                    "set_global(({}, {}, {}, {}, {}, {}, {}, {}), {});",
+                    r1._0(), r1._1(), r2._0(), r2._1(), r3._0(), r3._1(), r4._0(), r4._1(), idx
                 ))
             }
             StructuredInstruction::CONST(w, fp1, fp2) => {
@@ -282,24 +282,24 @@ impl Display for StructuredInstruction {
                     w, sub
                 ))
             }
-            StructuredInstruction::POSEIDON_LOAD_TO_MONTGOMERY(p, idx, r1, r2, r3, r4, r5, r6, r7, r8) => {
-                f.write_fmt(format_args!("poseidon.add_consts = {}; poseidon.state{} = to_montgomery!({}, {}, {}, {}, {}, {}, {}, {});",
-                                         p, idx, r1._0(), r2._0(), r3._0(), r4._0(), r5._0(), r6._0(), r7._0(), r8._0()
+            StructuredInstruction::POSEIDON_LOAD_FROM_MONTGOMERY(_, idx, r1, r2, r3, r4, r5, r6, r7, r8) => {
+                f.write_fmt(format_args!("poseidon.state = [0u32; 24]; poseidon.state[{}..={}] = from_montgomery!({}, {}, {}, {}, {}, {}, {}, {});",
+                                         idx * 8, idx * 8 + 8 - 1, r1._0(), r2._0(), r3._0(), r4._0(), r5._0(), r6._0(), r7._0(), r8._0()
                 ))
             }
-            StructuredInstruction::POSEIDON_LOAD(p, idx, r1, r2, r3, r4, r5, r6, r7, r8) => {
-                f.write_fmt(format_args!("poseidon.add_consts = {}; poseidon.state{} = ({}, {}, {}, {}, {}, {}, {}, {});",
-                                         p, idx, r1._0(), r2._0(), r3._0(), r4._0(), r5._0(), r6._0(), r7._0(), r8._0()
+            StructuredInstruction::POSEIDON_LOAD(_, idx, r1, r2, r3, r4, r5, r6, r7, r8) => {
+                f.write_fmt(format_args!("poseidon.state = [0u32; 24]; poseidon.state[{}..={}] = ({}, {}, {}, {}, {}, {}, {}, {});",
+                                         idx * 8, idx * 8 + 8 - 1, r1._0(), r2._0(), r3._0(), r4._0(), r5._0(), r6._0(), r7._0(), r8._0()
                 ))
             }
-            StructuredInstruction::POSEIDON_ADD_LOAD_TO_MONTGOMERY(p, idx, r1, r2, r3, r4, r5, r6, r7, r8) => {
-                f.write_fmt(format_args!("poseidon.add_consts = {}; poseidon.state{} += to_montgomery!({}, {}, {}, {}, {}, {}, {}, {});",
-                                         p, idx, r1._0(), r2._0(), r3._0(), r4._0(), r5._0(), r6._0(), r7._0(), r8._0()
+            StructuredInstruction::POSEIDON_ADD_LOAD_FROM_MONTGOMERY(_, idx, r1, r2, r3, r4, r5, r6, r7, r8) => {
+                f.write_fmt(format_args!("poseidon.state[{}..={}] += from_montgomery!({}, {}, {}, {}, {}, {}, {}, {});",
+                                         idx * 8, idx * 8 + 8 - 1, r1._0(), r2._0(), r3._0(), r4._0(), r5._0(), r6._0(), r7._0(), r8._0()
                 ))
             }
-            StructuredInstruction::POSEIDON_ADD_LOAD(p, idx, r1, r2, r3, r4, r5, r6, r7, r8) => {
-                f.write_fmt(format_args!("poseidon.add_consts = {}; poseidon.state{} += ({}, {}, {}, {}, {}, {}, {}, {});",
-                                         p, idx,  r1._0(), r2._0(), r3._0(), r4._0(), r5._0(), r6._0(), r7._0(), r8._0()
+            StructuredInstruction::POSEIDON_ADD_LOAD(_, idx, r1, r2, r3, r4, r5, r6, r7, r8) => {
+                f.write_fmt(format_args!("poseidon.state[{}..={}] += ({}, {}, {}, {}, {}, {}, {}, {});",
+                                         idx * 8, idx * 8 + 8 - 1,  r1._0(), r2._0(), r3._0(), r4._0(), r5._0(), r6._0(), r7._0(), r8._0()
                 ))
             }
             StructuredInstruction::POSEIDON_FULL => {
@@ -310,14 +310,14 @@ impl Display for StructuredInstruction {
             }
             StructuredInstruction::POSEIDON_STORE_TO_MONTGOMERY(idx, ws) => {
                 f.write_fmt(format_args!(
-                    "poseidon.write_state{}_montgomery(&mut m[{}..={}]);",
-                   idx, ws, ws + 8 - 1
+                    "m[{}..={}] = to_montgomery!(poseidon.state[{}..={}]);",
+                   ws, ws + 8 - 1, idx * 8, idx * 8 + 8 - 1
                 ))
             }
             StructuredInstruction::POSEIDON_STORE(idx, ws) => {
                 f.write_fmt(format_args!(
-                    "poseidon.write_state{}(&mut m[{}..={}]);",
-                    idx, ws, ws+8 - 1
+                    "m[{}..={}] = poseidon.state[{}..={}];",
+                    ws, ws + 8 - 1, idx * 8, idx * 8 + 8 - 1
                 ))
             }
             StructuredInstruction::__DELETE__ => {
@@ -343,14 +343,14 @@ impl Display for StructuredInstruction {
             }
             StructuredInstruction::__POSEIDON_PERMUTE_STORE_TO_MONTGOMERY__(idx, ws) => {
                 f.write_fmt(format_args!(
-                    "poseidon.permute_and_store_state{}_montgomery(&mut m[{}..={}]);",
-                    idx, ws, ws + 8 - 1
+                    "poseidon.permute(); m[{}..={}] = to_montgomery!(poseidon.state[{}..={}])",
+                    ws, ws + 8 - 1, idx * 8, idx * 8 + 8 - 1
                 ))
             }
             StructuredInstruction::__POSEIDON_PERMUTE_STORE__(idx, ws) => {
                 f.write_fmt(format_args!(
-                    "poseidon.permute_and_store_state{}(&mut m[{}..={}]);",
-                    idx, ws, ws + 8 -1
+                    "poseidon.permute(); m[{}..={}] = poseidon.state[{}..={}]",
+                    ws, ws + 8 - 1, idx * 8, idx * 8 + 8 - 1
                 ))
             }
             StructuredInstruction::__POSEIDON_PERMUTE__ => {

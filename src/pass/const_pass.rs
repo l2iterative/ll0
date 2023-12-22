@@ -135,8 +135,11 @@ impl Pass for ConstPass {
                 StructuredInstruction::SHA_LOAD(r) => {
                     refresh_and_get_constant(r);
                 }
-                StructuredInstruction::SET_GLOBAL(r, _) => {
-                    refresh_and_get_constant(r);
+                StructuredInstruction::SET_GLOBAL(r1, r2, r3, r4, _) => {
+                    refresh_and_get_constant(r1);
+                    refresh_and_get_constant(r2);
+                    refresh_and_get_constant(r3);
+                    refresh_and_get_constant(r4);
                 }
                 StructuredInstruction::CONST(w, v1, v2) => {
                     mem.borrow_mut().insert(
@@ -348,7 +351,7 @@ impl Pass for ConstPass {
                         }
                     }
                 }
-                StructuredInstruction::POSEIDON_LOAD_TO_MONTGOMERY(
+                StructuredInstruction::POSEIDON_LOAD_FROM_MONTGOMERY(
                     _,
                     _,
                     r1,
@@ -379,7 +382,7 @@ impl Pass for ConstPass {
                     refresh_and_get_constant(r7);
                     refresh_and_get_constant(r8);
                 }
-                StructuredInstruction::POSEIDON_ADD_LOAD_TO_MONTGOMERY(
+                StructuredInstruction::POSEIDON_ADD_LOAD_FROM_MONTGOMERY(
                     _,
                     _,
                     r1,

@@ -37,9 +37,15 @@ impl Pass for LiveVariableAnalysisPass {
                     v(r2);
                 }
                 StructuredInstruction::SHA_LOAD_FROM_MONTGOMERY(r)
-                | StructuredInstruction::SHA_LOAD(r)
-                | StructuredInstruction::SET_GLOBAL(r, _) => {
+                | StructuredInstruction::SHA_LOAD(r) => {
                     v(r);
+                }
+
+                StructuredInstruction::SET_GLOBAL(r1, r2, r3, r4, _) => {
+                    v(r1);
+                    v(r2);
+                    v(r3);
+                    v(r4);
                 }
                 StructuredInstruction::SHA_FINI_START(w) => {
                     u(w);
@@ -78,7 +84,7 @@ impl Pass for LiveVariableAnalysisPass {
                     u(w);
                     v(r);
                 }
-                StructuredInstruction::POSEIDON_LOAD_TO_MONTGOMERY(
+                StructuredInstruction::POSEIDON_LOAD_FROM_MONTGOMERY(
                     _,
                     _,
                     r1,
@@ -91,7 +97,7 @@ impl Pass for LiveVariableAnalysisPass {
                     r8,
                 )
                 | StructuredInstruction::POSEIDON_LOAD(_, _, r1, r2, r3, r4, r5, r6, r7, r8)
-                | StructuredInstruction::POSEIDON_ADD_LOAD_TO_MONTGOMERY(
+                | StructuredInstruction::POSEIDON_ADD_LOAD_FROM_MONTGOMERY(
                     _,
                     _,
                     r1,
@@ -202,9 +208,14 @@ impl Pass for LiveVariableAnalysisPass {
                     }
                 }
                 StructuredInstruction::SHA_LOAD_FROM_MONTGOMERY(r)
-                | StructuredInstruction::SHA_LOAD(r)
-                | StructuredInstruction::SET_GLOBAL(r, _) => {
+                | StructuredInstruction::SHA_LOAD(r) => {
                     remap_v(r);
+                }
+                StructuredInstruction::SET_GLOBAL(r1, r2, r3, r4, _) => {
+                    remap_v(r1);
+                    remap_v(r2);
+                    remap_v(r3);
+                    remap_v(r4);
                 }
                 StructuredInstruction::NOT(w, r) | StructuredInstruction::INV(w, r) => {
                     if is_available(r) {
@@ -260,7 +271,7 @@ impl Pass for LiveVariableAnalysisPass {
                 StructuredInstruction::EXTRACT(_, r, _) => {
                     remap_v(r);
                 }
-                StructuredInstruction::POSEIDON_LOAD_TO_MONTGOMERY(
+                StructuredInstruction::POSEIDON_LOAD_FROM_MONTGOMERY(
                     _,
                     _,
                     r1,
@@ -273,7 +284,7 @@ impl Pass for LiveVariableAnalysisPass {
                     r8,
                 )
                 | StructuredInstruction::POSEIDON_LOAD(_, _, r1, r2, r3, r4, r5, r6, r7, r8)
-                | StructuredInstruction::POSEIDON_ADD_LOAD_TO_MONTGOMERY(
+                | StructuredInstruction::POSEIDON_ADD_LOAD_FROM_MONTGOMERY(
                     _,
                     _,
                     r1,

@@ -97,7 +97,13 @@ fn walk_macro(
         out.push(StructuredInstruction::WOM_FINI, global_state.line_no);
     } else if insn[MACRO_SET_GLOBAL] == 1 {
         out.push(
-            StructuredInstruction::SET_GLOBAL(insn[MACRO_OPERAND_0].into(), insn[MACRO_OPERAND_1]),
+            StructuredInstruction::SET_GLOBAL(
+                insn[MACRO_OPERAND_0].into(),
+                (insn[MACRO_OPERAND_0] + 1).into(),
+                (insn[MACRO_OPERAND_0] + 2).into(),
+                (insn[MACRO_OPERAND_0] + 3).into(),
+                insn[MACRO_OPERAND_1],
+            ),
             global_state.line_no,
         );
     } else {
@@ -242,7 +248,7 @@ impl TryFrom<&[u32]> for Code {
                 if insn[POSEIDON_LOAD_KEEP_STATE] != 1 {
                     if insn[POSEIDON_DO_MONT] != 0 {
                         out.push(
-                            StructuredInstruction::POSEIDON_LOAD_TO_MONTGOMERY(
+                            StructuredInstruction::POSEIDON_LOAD_FROM_MONTGOMERY(
                                 insn[POSEIDON_LOAD_ADD_CONSTS],
                                 group,
                                 insn[13].into(),
@@ -276,7 +282,7 @@ impl TryFrom<&[u32]> for Code {
                 } else {
                     if insn[POSEIDON_DO_MONT] != 0 {
                         out.push(
-                            StructuredInstruction::POSEIDON_ADD_LOAD_TO_MONTGOMERY(
+                            StructuredInstruction::POSEIDON_ADD_LOAD_FROM_MONTGOMERY(
                                 insn[POSEIDON_LOAD_ADD_CONSTS],
                                 group,
                                 insn[13].into(),
