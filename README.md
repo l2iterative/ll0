@@ -31,6 +31,8 @@ sufficient attention.
 which opens the `recursion_zkr.zip` in the RISC Zero GitHub repo, which is a Zip file under Zstd compression algorithm.
 - **Decompile.** A decompiler, rephrased from [risc0/risc0/zkvm/src/host/recursion/prove/preflight.rs](https://github.com/risc0/risc0/blob/main/risc0/zkvm/src/host/recursion/prove/preflight.rs), 
 which decompiles the `.zkr` file into a more human-readable format, at the same time trying to retain a Rust feeling.
+Like a regular (de)compiler, a number of optimization passes are then performed over the raw codes and try to simplify 
+its logic by using function calls.
 
 Note that our decompiler is not a new invention, as [preflight.rs](https://github.com/risc0/risc0/blob/main/risc0/zkvm/src/host/recursion/prove/preflight.rs) already comes with a tracing system, and [step_exec.cpp](https://github.com/risc0/risc0/blob/main/risc0/circuit/recursion-sys/cxx/step_exec.cpp) has left comments that explain the behavior of the instructions.
 
@@ -65,33 +67,40 @@ cargo run --bin decompile -- --file join.zkr
 Below is an extract from `join.ll0` that can give people a feeling about what the low-level code can do.
 
 ```rust
-wom_init()
-m[1] = (0, 1, 0, 0)
-m[2] = m[1] * m[1]
-m[152] = m[151] + m[150]
-assert_eq!(m[2531], m[0])
-iop = read_iop(IOP_Header { count: 256, k_and_flip_flag: 2})
-m[2789] = iop.pop()
-poseidon.write_state0_montgomery(&mut m[2823..2831])
-poseidon.settings = PoseidonSettings { add_consts: 0 }
-poseidon.state0 = to_montgomery!(m[2694].0, m[2695].0, m[2696].0, m[2697].0, m[2698].0, m[2699].0, m[2700].0, m[2701].0)
-poseidon.settings = PoseidonSettings { add_consts: 1 }
-poseidon.state1 += to_montgomery!(m[2702].0, m[2703].0, m[2704].0, m[2705].0, m[2706].0, m[2707].0, m[2708].0, m[2709].0)
-poseidon.full()
-poseidon.full()
-poseidon.partial()
-poseidon.full()
-poseidon.full()
-m[368206] = m[368189 + 9 * m[366371].0]
-sha_init()
-sha_load(m[281460].0 + m[281460].1 << 16)
-sha_mix()
-sha_fini(&mut m[560697..560705])
-set_global(m[560697], 2)
-set_global(m[560701], 3)
-set_global(m[2487], 0)
-set_global(m[2491], 1)
-wom_fini()
+wom_init();
+iop = read_iop(IOP_Header { count: 8, k_and_flip_flag: 2});
+iop.write(m[1..=8]);
+m[147] = iop.pop();
+m[147] = m[147] * 268435454;
+m[147] = m[147] - 14;
+assert_eq!(m[147], 0);
+poseidon.add_consts = 0; poseidon.state0 = to_montgomery!(m[388].0, m[389].0, m[390].0, m[391].0, m[392].0, m[393].0, m[394].0, m[395].0);
+poseidon.add_consts = 1; poseidon.state1 += to_montgomery!(m[396].0, m[397].0, m[398].0, m[399].0, m[400].0, m[401].0, m[402].0, m[403].0);
+poseidon.permute_and_store_state0_montgomery(&mut m[404..=411]);
+sha_init();
+sha_load(24864 + 43029 << 16);
+sha_load(8263 + 2172 << 16);
+sha_load(57490 + 21696 << 16);
+sha_load(9586 + 12767 << 16);
+sha_load(10960 + 61078 << 16);
+sha_load(38323 + 3175 << 16);
+sha_load(4401 + 65325 << 16);
+sha_load(46224 + 54817 << 16);
+sha_load(m[45].0 + m[45].1 << 16);
+sha_load(m[49].0 + m[49].1 << 16);
+sha_load(m[53].0 + m[53].1 << 16);
+sha_load(m[57].0 + m[57].1 << 16);
+sha_load(m[61].0 + m[61].1 << 16);
+sha_load(m[65].0 + m[65].1 << 16);
+sha_load(m[69].0 + m[69].1 << 16);
+sha_load(m[73].0 + m[73].1 << 16);
+for _ in 0..48 { sha_mix(); }
+sha_fini(&mut m[115682..=115689]);
+set_global(m[115733], 2);
+set_global(m[115737], 3);
+set_global(m[1], 0);
+set_global(m[5], 1);
+wom_fini();
 ```
 
 ### Instruction set
@@ -104,6 +113,26 @@ SELECT, EXTRACT, POSEIDON_LOAD, POSEIDON_FULL, POSEIDON_PARTIAL, POSEIDON_STORE
 ```
 
 One can refer to the [decompile.rs](src/bin/decompile.rs) for the detailed behavior of these functions.
+
+### Decompilation passes
+
+This repo implements a few passes that simplify the code.
+- **ConstPass**: [const_pass.rs](src/pass/const_pass.rs). This pass replaces all the references to constants to the
+constants themselves, removes the variables that are used to temporarily host the constants, and removes the indirection 
+for extracting Fp from Fp4. 
+- **MergeIOPPass**: [merge_iop_pass.rs](src/pass/merge_iop_pass.rs). This pass merges continuous IOP read requests into
+a single line for human readability.
+- **LiveVariableAnalysisPass**: [live_variable_analysis.rs](src/pass/live_variable_analysis.rs). This pass analyzes the 
+lifetime of variables and tries to reuse the variable space. This lifts the restriction of write-once, in an aim to 
+simplify the code for human readability. This pass may affect the structure of the code and should be used after other 
+merging passes.
+- **PoseidonPass**: [poseidon_pass.rs](src/pass/poseidon_pass.rs). This pass merges the Poseidon full and partial round 
+calls into a single line for human readability.
+- **ShaPass**: [sha_pass.rs](src/pass/sha_pass.rs). This pass merges the SHA-256 Init, Mix, Fini lines into a single line 
+for human readability.
+- **ReorderPass**: [reorder_pass.rs](src/pass/reorder_pass.rs). Since ConstPass and LiveVariableAnalysisPass may remove 
+variables, the memory would have a lot of gaps in the middle. This pass removes such gaps by putting the remaining 
+variables close to each other.
 
 ### Why is it important?
 
