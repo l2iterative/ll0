@@ -1,6 +1,6 @@
 use crate::parser::Code;
 use crate::pass::Pass;
-use crate::structures::{ReadAddr, StructuredInstruction, WriteAddr};
+use crate::structures::{ReadAddr, ReadEndAddr, ReadStartAddr, StructuredInstruction, WriteAddr};
 use anyhow::bail;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -56,6 +56,11 @@ impl Pass for ReorderPass {
                         add_u(&i);
                     }
                 }
+                StructuredInstruction::__SELECT_RANGE__(ws, we, rs, r1s, r1e, r2s, r2e) => {
+                    for i in *ws..*we {
+                        add_u(&i);
+                    }
+                }
                 _ => {}
             }
         }
@@ -78,6 +83,12 @@ impl Pass for ReorderPass {
                 }
             }
             ReadAddr::Const(_) => Ok(()),
+        };
+
+        let reorder_together = |rs: &mut ReadStartAddr, re: &mut ReadEndAddr| {
+            let len = re - rs;
+            let mut new_positions: Vec<Option<u32>> = vec![None; len];
+            for i in rs..re {}
         };
 
         let remap_u = |w: &mut WriteAddr| {
@@ -196,6 +207,7 @@ impl Pass for ReorderPass {
                     remap_u(&mut new_we)?;
                     *we = new_we + 1;
                 }
+
                 StructuredInstruction::SHA_FINI_PADDING
                 | StructuredInstruction::WOM_INIT
                 | StructuredInstruction::WOM_FINI

@@ -137,6 +137,16 @@ pub enum StructuredInstruction {
     __SHA_INIT__,
     // sha_fini(&mut m[{}..={}])
     __SHA_FINI__(WriteStartAddr),
+    // m[{}..={}] = if m[{}].0 { m[{}..={}] } else { m[{}..={}] }
+    __SELECT_RANGE__(
+        WriteStartAddr,
+        WriteEndAddr,
+        ReadAddr,
+        ReadStartAddr,
+        ReadEndAddr,
+        ReadStartAddr,
+        ReadEndAddr,
+    ),
 }
 
 impl Display for StructuredInstruction {
@@ -334,7 +344,7 @@ impl Display for StructuredInstruction {
             }
             StructuredInstruction::__READ_IOP_BODY_BATCH__(ws, we) => {
                 f.write_fmt(format_args!(
-                    "iop.write(m[{}..={}]);",
+                    "iop.write(&mut m[{}..={}]);",
                     ws, we - 1
                 ))
             }
@@ -343,13 +353,13 @@ impl Display for StructuredInstruction {
             }
             StructuredInstruction::__POSEIDON_PERMUTE_STORE_TO_MONTGOMERY__(idx, ws) => {
                 f.write_fmt(format_args!(
-                    "poseidon.permute(); m[{}..={}] = to_montgomery!(poseidon.state[{}..={}])",
+                    "poseidon.permute(); m[{}..={}] = to_montgomery!(poseidon.state[{}..={}]);",
                     ws, ws + 8 - 1, idx * 8, idx * 8 + 8 - 1
                 ))
             }
             StructuredInstruction::__POSEIDON_PERMUTE_STORE__(idx, ws) => {
                 f.write_fmt(format_args!(
-                    "poseidon.permute(); m[{}..={}] = poseidon.state[{}..={}]",
+                    "poseidon.permute(); m[{}..={}] = poseidon.state[{}..={}];",
                     ws, ws + 8 - 1, idx * 8, idx * 8 + 8 - 1
                 ))
             }
@@ -370,6 +380,15 @@ impl Display for StructuredInstruction {
                     rs + 8 - 1
                 ))
             }
+            StructuredInstruction::__SELECT_RANGE__(
+                ws, we, rc, r1s, r1e, r2s, r2e
+            )
+            => {
+                f.write_fmt(
+                    format_args!("m[{}..={}] = if {} {{ m[{}..={}] }} else {{ m[{}..={}] }}",
+                    ws, we - 1, rc._0(), r1s, r1e - 1, r2s, r2e - 1)
+                )
+            }
         }
     }
 }
@@ -382,6 +401,9 @@ pub enum ReadAddr {
     RefSub(u32, u32),
     Const(Fp4),
 }
+
+pub type ReadStartAddr = u32;
+pub type ReadEndAddr = u32;
 
 pub type WriteStartAddr = u32;
 pub type WriteEndAddr = u32;

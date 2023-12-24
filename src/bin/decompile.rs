@@ -38,7 +38,7 @@ fn main() {
 
     ConstPass::pass(&mut code).unwrap();
     MergeIOPPass::pass(&mut code).unwrap();
-    LiveVariableAnalysisPass::pass(&mut code).unwrap();
+    //LiveVariableAnalysisPass::pass(&mut code).unwrap();
     ShaPass::pass(&mut code).unwrap();
     PoseidonPass::pass(&mut code).unwrap();
     ReorderPass::pass(&mut code).unwrap();

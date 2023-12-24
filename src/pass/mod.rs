@@ -1,4 +1,5 @@
 pub mod const_pass;
+pub mod if_else_pass;
 pub mod live_variable_analysis;
 pub mod merge_iop_pass;
 pub mod poseidon_pass;
