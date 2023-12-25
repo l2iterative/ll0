@@ -1,6 +1,6 @@
 use crate::parser::Code;
 use crate::pass::Pass;
-use crate::structures::{ReadAddr, StructuredInstruction, WriteAddr};
+use crate::structures::{ReadAddr, ReadEndAddr, ReadStartAddr, StructuredInstruction, WriteAddr};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -47,6 +47,8 @@ impl Pass for LiveVariableAnalysisPass {
                     v(r3);
                     v(r4);
                 }
+
+                |StructuredInstruction::__SHA_FINI__(w) |
                 StructuredInstruction::SHA_FINI_START(w) => {
                     u(w);
                     u(&(w + 1));
@@ -120,7 +122,11 @@ impl Pass for LiveVariableAnalysisPass {
                     v(r8);
                 }
                 StructuredInstruction::POSEIDON_STORE_TO_MONTGOMERY(_, w)
-                | StructuredInstruction::POSEIDON_STORE(_, w) => {
+                | StructuredInstruction::POSEIDON_STORE(_, w)
+                | StructuredInstruction::__POSEIDON_PERMUTE_STORE_TO_MONTGOMERY__(_, w)
+                |
+                StructuredInstruction::__POSEIDON_PERMUTE_STORE__(_, w)
+                => {
                     u(w);
                     u(&(w + 1));
                     u(&(w + 2));
@@ -139,7 +145,33 @@ impl Pass for LiveVariableAnalysisPass {
                         u(&i);
                     }
                 }
-                _ => {}
+                StructuredInstruction::SHA_INIT_START
+                |StructuredInstruction::SHA_INIT_PADDING
+                |StructuredInstruction::SHA_MIX
+                |StructuredInstruction::SHA_FINI_PADDING
+               | StructuredInstruction::WOM_INIT
+                |StructuredInstruction::WOM_FINI
+                |StructuredInstruction::READ_IOP_HEADER(_, _)
+                |StructuredInstruction::POSEIDON_FULL
+                |StructuredInstruction::POSEIDON_PARTIAL
+                |StructuredInstruction::__DELETE__
+                |StructuredInstruction::__PANIC__
+                |StructuredInstruction::__POSEIDON_PERMUTE__
+                | StructuredInstruction::__SHA_INIT__
+                |StructuredInstruction::__SHA_MIX_48__ => {}
+                |StructuredInstruction::__SELECT_RANGE__(ws, we, rs, r1s, r1e, r2s, r2e) => {
+                    for i in *ws..*we {
+                        u(&i);
+                    }
+                    v(rs);
+                    for i in *r1s..*r1e {
+                        v(&ReadAddr::Ref(i));
+                    }
+
+                    for i in *r2s..*r2e {
+                        v(&ReadAddr::Ref(i));
+                    }
+                }
             }
         }
 
@@ -184,9 +216,21 @@ impl Pass for LiveVariableAnalysisPass {
             _ => {}
         };
 
-        for (i, (insn, _)) in code.0.iter_mut().enumerate() {
-            *(line_number.borrow_mut()) = i;
-            match insn {
+        let has_remap_rule = |rs: &ReadStartAddr, re: &ReadEndAddr |  {
+            let mut has_remap_rule = false;
+            for x in *rs..*re {
+                if remap.borrow().contains_key(&x) {
+                    has_remap_rule = true;
+                }
+            }
+            has_remap_rule
+        };
+
+        let mut cur = 0;
+        while cur < code.0.len() {
+            *(line_number.borrow_mut()) = cur;
+            let insn = &mut code.0[cur].0;
+            let is_select_expanded = match insn {
                 StructuredInstruction::BIT_AND_ELEM(w, r1, r2)
                 | StructuredInstruction::BIT_AND_SHORTS(w, r1, r2)
                 | StructuredInstruction::BIT_XOR_SHORTS(w, r1, r2)
@@ -206,16 +250,19 @@ impl Pass for LiveVariableAnalysisPass {
                         remap_v(r1);
                         remap_v(r2);
                     }
+                    false
                 }
                 StructuredInstruction::SHA_LOAD_FROM_MONTGOMERY(r)
                 | StructuredInstruction::SHA_LOAD(r) => {
                     remap_v(r);
+                    false
                 }
                 StructuredInstruction::SET_GLOBAL(r1, r2, r3, r4, _) => {
                     remap_v(r1);
                     remap_v(r2);
                     remap_v(r3);
                     remap_v(r4);
+                    false
                 }
                 StructuredInstruction::NOT(w, r) | StructuredInstruction::INV(w, r) => {
                     if is_available(r) {
@@ -224,10 +271,12 @@ impl Pass for LiveVariableAnalysisPass {
                     } else {
                         remap_v(r);
                     }
+                    false
                 }
                 StructuredInstruction::EQ(r1, r2) => {
                     remap_v(r1);
                     remap_v(r2);
+                    false
                 }
                 StructuredInstruction::MIX_RNG_WITH_PERV(w, _, r_p, r1, r2) => {
                     if is_available(r_p) {
@@ -250,6 +299,7 @@ impl Pass for LiveVariableAnalysisPass {
                         remap_v(r1);
                         remap_v(r2);
                     }
+                    false
                 }
                 StructuredInstruction::SELECT(w, s, r1, r2) => {
                     if is_available(r1) {
@@ -267,9 +317,11 @@ impl Pass for LiveVariableAnalysisPass {
                         remap_v(r1);
                         remap_v(r2);
                     }
+                    false
                 }
                 StructuredInstruction::EXTRACT(_, r, _) => {
                     remap_v(r);
+                    false
                 }
                 StructuredInstruction::POSEIDON_LOAD_FROM_MONTGOMERY(
                     _,
@@ -305,6 +357,7 @@ impl Pass for LiveVariableAnalysisPass {
                     remap_v(r6);
                     remap_v(r7);
                     remap_v(r8);
+                    false
                 }
                 StructuredInstruction::__MOV__(w, r) => {
                     if is_available(r) {
@@ -314,9 +367,40 @@ impl Pass for LiveVariableAnalysisPass {
                     } else {
                         remap_v(r);
                     }
+                    false
                 }
-                _ => {}
-            }
+                StructuredInstruction::SHA_INIT_START
+                |StructuredInstruction::SHA_INIT_PADDING
+                |StructuredInstruction::SHA_MIX
+                | StructuredInstruction::SHA_FINI_START(_)
+                |StructuredInstruction::SHA_FINI_PADDING
+                |StructuredInstruction::WOM_INIT
+                |StructuredInstruction::WOM_FINI
+                |StructuredInstruction::CONST(_, _, _)
+                |StructuredInstruction::READ_IOP_HEADER(_, _)
+                |StructuredInstruction::READ_IOP_BODY(_)
+                |StructuredInstruction::POSEIDON_FULL
+                |StructuredInstruction::POSEIDON_PARTIAL
+                |StructuredInstruction::POSEIDON_STORE_TO_MONTGOMERY(_, _)
+                |StructuredInstruction::POSEIDON_STORE(_, _)
+                |StructuredInstruction::__DELETE__
+                |StructuredInstruction::__PANIC__
+                |StructuredInstruction::__READ_IOP_BODY_BATCH__(_, _)
+               | StructuredInstruction::__SHA_MIX_48__
+               | StructuredInstruction::__POSEIDON_PERMUTE_STORE_TO_MONTGOMERY__(_, _)
+                |StructuredInstruction::__POSEIDON_PERMUTE_STORE__(_, _)
+               | StructuredInstruction::__POSEIDON_PERMUTE__
+               | StructuredInstruction::__SHA_INIT__
+               | StructuredInstruction::__SHA_FINI__(_) => {}
+                StructuredInstruction::__SELECT_RANGE__(ws, we, rs, r1s, r1e, r2s, r2e) => {
+                    if has_remap_rule(r1s, r1e) || has_remap_rule(r2s, r2e) {
+
+                    } else {
+                        remap_v(rs);
+                    }
+                    false
+                }
+            };
         }
 
         Ok(())

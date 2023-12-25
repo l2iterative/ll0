@@ -11,6 +11,7 @@ use ll0::structures::StructuredInstruction;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
+use ll0::pass::if_else_pass::IfElsePass;
 
 #[derive(Parser, Debug)]
 #[command(about = "Decompile a ZKR file", long_about = None)]
@@ -38,10 +39,11 @@ fn main() {
 
     ConstPass::pass(&mut code).unwrap();
     MergeIOPPass::pass(&mut code).unwrap();
-    //LiveVariableAnalysisPass::pass(&mut code).unwrap();
     ShaPass::pass(&mut code).unwrap();
     PoseidonPass::pass(&mut code).unwrap();
     ReorderPass::pass(&mut code).unwrap();
+    IfElsePass::pass(&mut code).unwrap();
+    LiveVariableAnalysisPass::pass(&mut code).unwrap();
 
     let out_name = if args.output.is_some() {
         args.output.unwrap()

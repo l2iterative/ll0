@@ -1,7 +1,7 @@
 use crate::math::{Fp, Fp4};
 use crate::parser::Code;
 use crate::pass::Pass;
-use crate::structures::{ReadAddr, StructuredInstruction};
+use crate::structures::{ReadAddr, ReadEndAddr, ReadStartAddr, StructuredInstruction};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -73,8 +73,20 @@ impl Pass for ConstPass {
             ReadAddr::Const(v) => Some(v.clone()),
         };
 
-        for (insn, _) in code.0.iter_mut() {
-            match insn {
+        let has_constant = |rs: &ReadStartAddr, re: &ReadEndAddr| {
+            let mut has_constant = false;
+            for x in *rs..*re {
+                if mem.borrow().contains_key(&x) {
+                    has_constant = true;
+                }
+            }
+            has_constant
+        };
+
+        let mut cur = 0;
+        while cur < code.0.len() {
+           let insn = &mut code.0[cur].0;
+           let is_select_expanded = match insn {
                 StructuredInstruction::BIT_AND_ELEM(w, r1, r2) => {
                     let d1 = refresh_and_get_constant(r1);
                     let d2 = refresh_and_get_constant(r2);
@@ -92,6 +104,7 @@ impl Pass for ConstPass {
                         );
                         *insn = StructuredInstruction::__DELETE__;
                     }
+                    false
                 }
                 StructuredInstruction::BIT_AND_SHORTS(w, r1, r2) => {
                     let d1 = refresh_and_get_constant(r1);
@@ -110,6 +123,7 @@ impl Pass for ConstPass {
                         );
                         *insn = StructuredInstruction::__DELETE__;
                     }
+                    false
                 }
                 StructuredInstruction::BIT_XOR_SHORTS(w, r1, r2) => {
                     let d1 = refresh_and_get_constant(r1);
@@ -128,18 +142,22 @@ impl Pass for ConstPass {
                         );
                         *insn = StructuredInstruction::__DELETE__;
                     }
+                    false
                 }
                 StructuredInstruction::SHA_LOAD_FROM_MONTGOMERY(r) => {
                     refresh_and_get_constant(r);
+                    false
                 }
                 StructuredInstruction::SHA_LOAD(r) => {
                     refresh_and_get_constant(r);
+                    false
                 }
                 StructuredInstruction::SET_GLOBAL(r1, r2, r3, r4, _) => {
                     refresh_and_get_constant(r1);
                     refresh_and_get_constant(r2);
                     refresh_and_get_constant(r3);
                     refresh_and_get_constant(r4);
+                    false
                 }
                 StructuredInstruction::CONST(w, v1, v2) => {
                     mem.borrow_mut().insert(
@@ -147,6 +165,7 @@ impl Pass for ConstPass {
                         RedirectionEntry::Const(Fp4::new(Fp(*v1), Fp(*v2), Fp::ZERO, Fp::ZERO)),
                     );
                     *insn = StructuredInstruction::__DELETE__;
+                    false
                 }
                 StructuredInstruction::ADD(w, r1, r2) => {
                     let d1 = refresh_and_get_constant(r1);
@@ -162,6 +181,7 @@ impl Pass for ConstPass {
                     } else if d2.is_some() && d2.unwrap() == Fp4::default() {
                         *insn = StructuredInstruction::__MOV__(*w, r1.clone());
                     }
+                    false
                 }
                 StructuredInstruction::SUB(w, r1, r2) => {
                     let d1 = refresh_and_get_constant(r1);
@@ -175,6 +195,7 @@ impl Pass for ConstPass {
                     } else if d2.is_some() && d2.unwrap() == Fp4::default() {
                         *insn = StructuredInstruction::__MOV__(*w, r1.clone());
                     }
+                    false
                 }
                 StructuredInstruction::MUL(w, r1, r2) => {
                     let d1 = refresh_and_get_constant(r1);
@@ -194,6 +215,7 @@ impl Pass for ConstPass {
                             .insert(*w, RedirectionEntry::Const(Fp4::default()));
                         *insn = StructuredInstruction::__DELETE__;
                     }
+                    false
                 }
                 StructuredInstruction::NOT(w, r) => {
                     let d = refresh_and_get_constant(r);
@@ -221,6 +243,7 @@ impl Pass for ConstPass {
                             );
                         }
                     }
+                    false
                 }
                 StructuredInstruction::INV(w, r) => {
                     let d = refresh_and_get_constant(r);
@@ -229,6 +252,7 @@ impl Pass for ConstPass {
                         mem.borrow_mut()
                             .insert(*w, RedirectionEntry::Const(d.inv()));
                     }
+                    false
                 }
                 StructuredInstruction::EQ(r1, r2) => {
                     let d1 = refresh_and_get_constant(r1);
@@ -242,6 +266,7 @@ impl Pass for ConstPass {
                             *insn = StructuredInstruction::__PANIC__;
                         }
                     }
+                    false
                 }
                 StructuredInstruction::MIX_RNG_WITH_PERV(w, fp, prev, r1, r2) => {
                     let d1 = refresh_and_get_constant(r1);
@@ -265,6 +290,7 @@ impl Pass for ConstPass {
                         );
                         *insn = StructuredInstruction::__DELETE__;
                     }
+                    false
                 }
                 StructuredInstruction::MIX_RNG(w, r1, r2) => {
                     let d1 = refresh_and_get_constant(r1);
@@ -285,6 +311,7 @@ impl Pass for ConstPass {
                         );
                         *insn = StructuredInstruction::__DELETE__;
                     }
+                    false
                 }
                 StructuredInstruction::SELECT(w, s, r1, r2) => {
                     let s = refresh_and_get_constant(s);
@@ -311,6 +338,7 @@ impl Pass for ConstPass {
                             }
                         }
                     }
+                    false
                 }
                 StructuredInstruction::EXTRACT(w, r, idx) => {
                     let d = refresh_and_get_constant(r);
@@ -350,6 +378,7 @@ impl Pass for ConstPass {
                             ReadAddr::Const(_) => {}
                         }
                     }
+                    false
                 }
                 StructuredInstruction::POSEIDON_LOAD_FROM_MONTGOMERY(
                     _,
@@ -371,6 +400,7 @@ impl Pass for ConstPass {
                     refresh_and_get_constant(r6);
                     refresh_and_get_constant(r7);
                     refresh_and_get_constant(r8);
+                    false
                 }
                 StructuredInstruction::POSEIDON_LOAD(_, _, r1, r2, r3, r4, r5, r6, r7, r8) => {
                     refresh_and_get_constant(r1);
@@ -381,6 +411,7 @@ impl Pass for ConstPass {
                     refresh_and_get_constant(r6);
                     refresh_and_get_constant(r7);
                     refresh_and_get_constant(r8);
+                    false
                 }
                 StructuredInstruction::POSEIDON_ADD_LOAD_FROM_MONTGOMERY(
                     _,
@@ -402,6 +433,7 @@ impl Pass for ConstPass {
                     refresh_and_get_constant(r6);
                     refresh_and_get_constant(r7);
                     refresh_and_get_constant(r8);
+                    false
                 }
                 StructuredInstruction::POSEIDON_ADD_LOAD(_, _, r1, r2, r3, r4, r5, r6, r7, r8) => {
                     refresh_and_get_constant(r1);
@@ -412,6 +444,7 @@ impl Pass for ConstPass {
                     refresh_and_get_constant(r6);
                     refresh_and_get_constant(r7);
                     refresh_and_get_constant(r8);
+                    false
                 }
                 StructuredInstruction::__MOV__(w, r) => {
                     let d = refresh_and_get_constant(r);
@@ -420,8 +453,55 @@ impl Pass for ConstPass {
                             .insert(*w, RedirectionEntry::Const(d.unwrap()));
                         *insn = StructuredInstruction::__DELETE__;
                     }
+                    false
                 }
-                _ => {}
+                StructuredInstruction::__SELECT_RANGE__(_, _, rs, r1s, r1e, r2s, r2e) => {
+                    let s = refresh_and_get_constant(rs);
+
+                    if s.is_some() || has_constant(r1s, r1e) || has_constant(r2s, r2e) {
+                        // expand the __SELECT_RANGE__ back to line-by-line SELECT
+                        true
+                    } else {
+                        false
+                    }
+                }
+               StructuredInstruction::SHA_INIT_START
+               | StructuredInstruction::SHA_INIT_PADDING
+               | StructuredInstruction::SHA_MIX
+               | StructuredInstruction::SHA_FINI_START(_)
+               | StructuredInstruction::SHA_FINI_PADDING
+               | StructuredInstruction::WOM_INIT
+               | StructuredInstruction::WOM_FINI
+               | StructuredInstruction::READ_IOP_HEADER(_, _)
+               | StructuredInstruction::READ_IOP_BODY(_)
+               |StructuredInstruction::POSEIDON_FULL
+               |StructuredInstruction::POSEIDON_PARTIAL
+               |StructuredInstruction::POSEIDON_STORE_TO_MONTGOMERY(_, _)
+               |StructuredInstruction::POSEIDON_STORE(_, _)
+               |StructuredInstruction::__DELETE__
+              |StructuredInstruction::__PANIC__
+               |StructuredInstruction::__READ_IOP_BODY_BATCH__(_, _)
+              | StructuredInstruction::__SHA_MIX_48__
+              | StructuredInstruction::__POSEIDON_PERMUTE_STORE_TO_MONTGOMERY__(_, _)
+              | StructuredInstruction::__POSEIDON_PERMUTE_STORE__(_, _)
+              | StructuredInstruction::__POSEIDON_PERMUTE__
+              | StructuredInstruction::__SHA_INIT__
+              | StructuredInstruction::__SHA_FINI__(_) => {false }
+           };
+
+            if is_select_expanded {
+                if let StructuredInstruction::__SELECT_RANGE__(ws, we, rs, r1s, _, r2s, _) = code.0[cur].0.clone() {
+                    for i in 0..we - ws {
+                        let tbd_w = ws + i;
+                        let tbd_r1 = ReadAddr::Ref(r1s + i);
+                        let tbd_r2 = ReadAddr::Ref(r2s + i);
+                        code.0[cur + i as usize].0 = StructuredInstruction::SELECT(tbd_w, rs.clone(), tbd_r1, tbd_r2);
+                    }
+
+                    // cur unchanged -- let the const pass redo this one
+                }
+            } else {
+                cur += 1;
             }
         }
 

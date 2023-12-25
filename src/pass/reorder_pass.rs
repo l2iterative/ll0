@@ -56,7 +56,7 @@ impl Pass for ReorderPass {
                         add_u(&i);
                     }
                 }
-                StructuredInstruction::__SELECT_RANGE__(ws, we, rs, r1s, r1e, r2s, r2e) => {
+                StructuredInstruction::__SELECT_RANGE__(ws, we, _, _, _, _, _) => {
                     for i in *ws..*we {
                         add_u(&i);
                     }
@@ -85,10 +85,19 @@ impl Pass for ReorderPass {
             ReadAddr::Const(_) => Ok(()),
         };
 
+        let can_reorder_together = |rs: &ReadStartAddr, re: &ReadEndAddr| {
+            let mut has_missing = false;
+            for i in *rs..*re {
+                if !remap.borrow().contains_key(&i) {
+                    has_missing = true;
+                }
+            }
+            !has_missing
+        };
+
         let reorder_together = |rs: &mut ReadStartAddr, re: &mut ReadEndAddr| {
-            let len = re - rs;
-            let mut new_positions: Vec<Option<u32>> = vec![None; len];
-            for i in rs..re {}
+            *rs = *remap.borrow().get(rs).unwrap();
+            *re = (*remap.borrow().get(&((*re) - 1)).unwrap()) + 1;
         };
 
         let remap_u = |w: &mut WriteAddr| {
@@ -100,8 +109,9 @@ impl Pass for ReorderPass {
             }
         };
 
-        for (insn, _) in code.0.iter_mut() {
-            match insn {
+        let mut cur = 0;
+        while cur < code.0.len() {
+            let is_select_expanded = match &mut code.0[cur].0 {
                 StructuredInstruction::BIT_AND_ELEM(w, r1, r2)
                 | StructuredInstruction::BIT_AND_SHORTS(w, r1, r2)
                 | StructuredInstruction::BIT_XOR_SHORTS(w, r1, r2)
@@ -112,39 +122,47 @@ impl Pass for ReorderPass {
                     remap_v(r1)?;
                     remap_v(r2)?;
                     remap_u(w)?;
+                    false
                 }
                 StructuredInstruction::SHA_LOAD_FROM_MONTGOMERY(r)
                 | StructuredInstruction::SHA_LOAD(r) => {
                     remap_v(r)?;
+                    false
                 }
                 StructuredInstruction::SET_GLOBAL(r1, r2, r3, r4, _) => {
                     remap_v(r1)?;
                     remap_v(r2)?;
                     remap_v(r3)?;
                     remap_v(r4)?;
+                    false
                 }
                 StructuredInstruction::NOT(w, r) | StructuredInstruction::INV(w, r) => {
                     remap_v(r)?;
                     remap_u(w)?;
+                    false
                 }
                 StructuredInstruction::EQ(r1, r2) => {
                     remap_v(r1)?;
                     remap_v(r2)?;
+                    false
                 }
                 StructuredInstruction::MIX_RNG_WITH_PERV(w, _, r_p, r1, r2) => {
                     remap_v(r_p)?;
                     remap_u(w)?;
                     remap_v(r1)?;
                     remap_v(r2)?;
+                    false
                 }
                 StructuredInstruction::SELECT(w, s, r1, r2) => {
                     remap_v(s)?;
                     remap_v(r1)?;
                     remap_u(w)?;
                     remap_v(r2)?;
+                    false
                 }
                 StructuredInstruction::EXTRACT(_, r, _) => {
                     remap_v(r)?;
+                    false
                 }
                 StructuredInstruction::POSEIDON_LOAD_FROM_MONTGOMERY(
                     _,
@@ -180,19 +198,24 @@ impl Pass for ReorderPass {
                     remap_v(r6)?;
                     remap_v(r7)?;
                     remap_v(r8)?;
+                    false
                 }
                 StructuredInstruction::__MOV__(w, r) => {
                     remap_v(r)?;
                     remap_u(w)?;
+                    false
                 }
                 StructuredInstruction::SHA_FINI_START(ws) => {
                     remap_u(ws)?;
+                    false
                 }
                 StructuredInstruction::CONST(w, _, _) => {
                     remap_u(w)?;
+                    false
                 }
                 StructuredInstruction::READ_IOP_BODY(w) => {
                     remap_u(w)?;
+                    false
                 }
                 StructuredInstruction::POSEIDON_STORE_TO_MONTGOMERY(_, ws)
                 | StructuredInstruction::POSEIDON_STORE(_, ws)
@@ -200,14 +223,15 @@ impl Pass for ReorderPass {
                 | StructuredInstruction::__SHA_FINI__(ws)
                 | StructuredInstruction::__POSEIDON_PERMUTE_STORE__(_, ws) => {
                     remap_u(ws)?;
+                    false
                 }
                 StructuredInstruction::__READ_IOP_BODY_BATCH__(ws, we) => {
                     remap_u(ws)?;
                     let mut new_we = *we - 1;
                     remap_u(&mut new_we)?;
                     *we = new_we + 1;
+                    false
                 }
-
                 StructuredInstruction::SHA_FINI_PADDING
                 | StructuredInstruction::WOM_INIT
                 | StructuredInstruction::WOM_FINI
@@ -221,7 +245,46 @@ impl Pass for ReorderPass {
                 | StructuredInstruction::__SHA_INIT__
                 | StructuredInstruction::SHA_INIT_START
                 | StructuredInstruction::SHA_INIT_PADDING
-                | StructuredInstruction::SHA_MIX => {}
+                | StructuredInstruction::SHA_MIX => {
+                    false
+                }
+                StructuredInstruction::__SELECT_RANGE__(ws, we, rs, r1s, r1e, r2s, r2e) => {
+                    // try to remap as much as possible first
+                    let can_remap_r1 = can_reorder_together(r1s, r1e);
+                    let can_remap_r2 = can_reorder_together(r2s, r2e);
+                    let can_remap_w = can_reorder_together(ws, we);
+
+                    if !can_remap_r1 || !can_remap_r2 || !can_remap_w {
+                        // expand the __SELECT_RANGE__ back to line-by-line SELECT
+                        true
+                    } else {
+                        remap_v(rs)?;
+                        reorder_together(r1s, r1e);
+                        reorder_together(r2s, r2e);
+                        reorder_together(ws, we);
+
+                        false
+                    }
+                }
+            };
+
+            if is_select_expanded {
+                if let StructuredInstruction::__SELECT_RANGE__(ws, we, rs, r1s, _, r2s, _) = code.0[cur].0.clone() {
+                    for i in 0..we - ws {
+                        let mut tbd_w = ws + i;
+                        let mut tbd_r1 = ReadAddr::Ref(r1s + i);
+                        let mut tbd_r2 = ReadAddr::Ref(r2s + i);
+
+                        remap_u(&mut tbd_w)?;
+                        remap_v(&mut tbd_r1)?;
+                        remap_v(&mut tbd_r2)?;
+
+                        code.0[cur + i as usize].0 = StructuredInstruction::SELECT(tbd_w, rs.clone(), tbd_r1, tbd_r2);
+                    }
+                    cur += (we - ws) as usize;
+                }
+            } else {
+                cur += 1;
             }
         }
 

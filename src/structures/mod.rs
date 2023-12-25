@@ -2,8 +2,46 @@ use crate::math::{Fp, Fp4};
 use std::fmt::{Display, Formatter};
 use std::format_args;
 
+pub struct ReadAddrArray(pub Vec<ReadAddr>);
+pub struct WriteAddrArray(pub Vec<WriteAddr>);
+
+fn print_readaddr_array(r: &Vec<ReadAddr>, f: &mut Formatter<'_>) -> std::fmt::Result {
+    let mut groups = Vec::<String>::new();
+
+    let mut cur: Option<ReadAddr> = None;
+    let mut cur_group_len = 0;
+
+    for elem in r.iter() {
+        if cur.is_none() {
+            cur = Some(elem.clone());
+            cur_group_len = 1;
+        } else {
+            match (elem, cur.as_ref().unwrap()) {
+                (ReadAddr::Ref(v1), ReadAddr::Ref(v2)) => {
+                    if *v1 == *v2 + cur_group_len  {
+                        cur_group_len += 1;
+                    } else {
+                        if cur_group_len == 1 {
+
+                        } else {
+
+                        }
+                    }
+                },
+                (ReadAddr::RefSub(v1, v2), ReadAddr::Ref(v2)) => {}
+                _ => {
+
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+fn print_writeaddr_array()
+
 #[allow(non_camel_case_types)]
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Clone)]
 pub enum StructuredInstruction {
     // m[{}] = (m[{}].0 & m[{}].0)
     BIT_AND_ELEM(WriteAddr, ReadAddr, ReadAddr),
@@ -142,10 +180,8 @@ pub enum StructuredInstruction {
         WriteStartAddr,
         WriteEndAddr,
         ReadAddr,
-        ReadStartAddr,
-        ReadEndAddr,
-        ReadStartAddr,
-        ReadEndAddr,
+        Vec<ReadAddr>,
+        Vec<ReadAddr>,
     ),
 }
 
@@ -381,7 +417,7 @@ impl Display for StructuredInstruction {
                 ))
             }
             StructuredInstruction::__SELECT_RANGE__(
-                ws, we, rc, r1s, r1e, r2s, r2e
+                ws, we, rc, r1_vec, r2_vec
             )
             => {
                 f.write_fmt(
